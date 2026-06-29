@@ -1,0 +1,7 @@
+__pycache__
+venv
+.session_secret
+client_secret.json
+db.json
+run_history.json
+

@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowMail — AI Email Automation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+       
+        :root {
+            --bg: #0f0f11;
+            --bg2: #18181c;
+            --bg3: #222228;
+            --border: #2e2e38;
+            --accent: #6EE7B7;
+            --accent2: #818CF8;
+            --accent3: #F472B6;
+            --warn: #FBBF24;
+            --danger: #F87171;
+            --text: #e4e4f0;
+            --muted: #6b6b80;
+            --node-trigger: #0EA5E9;
+            --node-llm: #8B5CF6;
+            --node-summarizer: #06B6D4;
+            --node-filter: #F59E0B;
+            --node-scheduler: #EC4899;
+            --node-sender: #10B981;
+            --node-sheets: #34D399;
+            --node-calendar: #4285F4;
+            --node-drive: #FBBC04;
+            --node-docs: #4285F4;
+            --node-contacts: #34A853;
+            --node-tasks: #FF6D00;
+            --node-meet: #00897B;
+            --node-forms: #AB47BC;
+            --node-youtube: #FF0000;
+            --radius: 10px;
+        }
+        .light-theme {
+            --bg: #f0f0f5;
+            --bg2: #ffffff;
+            --bg3: #e8e8f0;
+            --border: #d0d0e0;
+            --text: #1a1a2e;
+            --muted: #6b6b80;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg); color: var(--text);
+            height: 100vh; width: 100vw; display: flex;
+            overflow: hidden; user-select: none;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width: 270px; background: var(--bg2); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; z-index: 10; flex-shrink: 0;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.3);
+            overflow-y: auto;
+        }
+        .sidebar-logo {
+            padding: 18px 20px; border-bottom: 1px solid var(--border);
+            font-family: 'Space Mono', monospace; font-size: 1rem;
+            color: var(--accent); letter-spacing: -0.5px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .sidebar-logo span { color: var(--muted); font-size: 0.75rem; font-family: 'DM Sans', sans-serif; }
+        .theme-toggle {
+            background: var(--bg3); border: 1px solid var(--border);
+            color: var(--text); width: 30px; height: 30px; border-radius: 6px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 0.85rem; transition: all 0.2s;
+        }
+        .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+        .status-pill {
+            margin: 12px 14px; padding: 10px 14px; border-radius: 8px;
+            font-size: 0.78rem; display: flex; align-items: center; gap: 8px;
+            background: var(--bg3); border: 1px solid var(--border);
+        }
+        .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+        .status-dot.on { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: blink 2s infinite; }
+        .status-dot.err { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+        .section-label {
+            padding: 12px 20px 6px; font-size: 0.68rem; color: var(--muted);
+            text-transform: uppercase; letter-spacing: 1.2px; font-family: 'Space Mono', monospace;
+        }
+        .node-item {
+            padding: 11px 16px; cursor: grab; display: flex; align-items: center;
+            gap: 12px; transition: background 0.15s; border-radius: 6px; margin: 2px 8px;
+        }
+        .node-item:hover { background: var(--bg3); }
+        .node-item:active { cursor: grabbing; }
+        .node-dot {
+            width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+        }
+        .node-label { font-size: 0.875rem; font-weight: 500; }
+        .node-desc { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+
+        /* Templates button */
+        .tpl-btn {
+            margin: 10px 12px 0; padding: 10px; background: var(--bg3);
+            border: 1px dashed var(--border); border-radius: 8px; cursor: pointer;
+            font-size: 0.8rem; color: var(--muted); text-align: center; transition: all 0.2s;
+        }
+        .tpl-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
+      
+        .canvas-wrap {
+            flex: 1; position: relative; overflow: hidden;
+            background-color: var(--bg);
+            background-image: radial-gradient(var(--border) 1px, transparent 1px);
+            background-size: 28px 28px; cursor: grab;
+        }
+        .canvas-wrap.connecting { cursor: crosshair !important; }
+
+        #viewport {
+            transform-origin: 0 0; position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; pointer-events: none;
+        }
+
+        .node {
+            position: absolute; width: 250px; background: var(--bg2);
+            border-radius: var(--radius); border: 1px solid var(--border);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4); pointer-events: auto;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .node:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+        .node.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(110,231,183,0.25); }
+        .node.disabled { opacity: 0.45; }
+
+        .node-head {
+            padding: 11px 14px; border-radius: 9px 9px 0 0;
+            display: flex; align-items: center; gap: 9px;
+            color: white; font-weight: 600; font-size: 0.85rem;
+            position: relative;
+        }
+        .node-toggle {
+            position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+            width: 28px; height: 16px; background: rgba(0,0,0,0.3); border-radius: 8px;
+            cursor: pointer; display: flex; align-items: center; padding: 2px;
+            transition: background 0.2s; border: none;
+        }
+        .node-toggle.on { background: rgba(255,255,255,0.25); }
+        .node-toggle-knob {
+            width: 12px; height: 12px; background: white; border-radius: 50%;
+            transition: transform 0.2s; pointer-events: none;
+        }
+        .node-toggle.on .node-toggle-knob { transform: translateX(12px); }
+
+        .node-body {
+            padding: 12px 14px; font-size: 0.8rem; color: var(--muted);
+            min-height: 44px; max-height: 90px; overflow-y: auto; white-space: pre-wrap;
+            border-top: 1px solid var(--border);
+        }
+
+      
+        .port {
+            width: 20px; height: 20px; border: 3px solid var(--bg2); border-radius: 50%;
+            position: absolute; top: 22px; cursor: pointer; z-index: 100;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .port:hover { transform: scale(1.35); }
+        .port.active { box-shadow: 0 0 12px currentColor; transform: scale(1.4); }
+        .port-in { left: -10px; }
+        .port-out { right: -10px; }
+
+       
+        svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+        .wire { fill: none; stroke: var(--border); stroke-width: 2.5px; stroke-linecap: round; pointer-events: stroke; transition: stroke 0.2s; }
+        .wire:hover { stroke: var(--accent2); stroke-width: 3.5px; cursor: pointer; }
+
+       
+        .top-bar {
+            position: absolute; top: 18px; right: 18px; z-index: 100;
+            display: flex; gap: 8px; align-items: center;
+        }
+        .btn {
+            padding: 9px 20px; border-radius: 20px; border: none;
+            font-weight: 600; cursor: pointer; font-size: 0.82rem;
+            font-family: 'DM Sans', sans-serif; transition: all 0.2s; white-space: nowrap;
+        }
+        .btn-primary { background: var(--accent); color: #0a1a12; }
+        .btn-primary:hover { background: #a7f3d0; }
+        .btn-stop { background: var(--danger); color: white; }
+        .btn-stop:hover { background: #fca5a5; }
+        .btn-outline {
+            background: transparent; color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-outline:hover { border-color: var(--accent2); color: var(--accent2); }
+        .btn-google { background: #4285F4; color: white; }
+        .btn-google:hover { background: #5a95f5; }
+
+  
+        .panel {
+            position: fixed; right: -440px; top: 0; width: 440px; height: 100%;
+            background: var(--bg2); border-left: 1px solid var(--border);
+            transition: right 0.3s cubic-bezier(0.25,1,0.5,1); z-index: 300;
+            display: flex; flex-direction: column; box-shadow: -8px 0 32px rgba(0,0,0,0.4);
+            overflow-y: auto;
+        }
+        .panel.open { right: 0; }
+        .panel-head {
+            padding: 22px 24px 16px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .panel-title { font-size: 1rem; font-weight: 600; }
+        .panel-close {
+            background: var(--bg3); border: 1px solid var(--border);
+            color: var(--muted); width: 28px; height: 28px; border-radius: 6px;
+            cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; justify-content: center;
+        }
+        .panel-close:hover { color: var(--danger); border-color: var(--danger); }
+        .panel-body { padding: 20px 24px; flex: 1; }
+        .panel-foot {
+            padding: 16px 24px; border-top: 1px solid var(--border);
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .field { margin-bottom: 16px; }
+        .field label {
+            display: block; margin-bottom: 6px; font-size: 0.78rem;
+            color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .field input, .field textarea, .field select {
+            width: 100%; background: var(--bg3); border: 1px solid var(--border);
+            color: var(--text); padding: 10px 12px; border-radius: 7px;
+            font-family: 'DM Sans', sans-serif; font-size: 0.87rem; transition: border-color 0.2s;
+        }
+        .field input:focus, .field textarea:focus, .field select:focus {
+            outline: none; border-color: var(--accent2);
+        }
+        .field-hint { font-size: 0.73rem; color: var(--muted); margin-top: 5px; line-height: 1.5; }
+        .tag {
+            display: inline-block; background: var(--bg3); border: 1px solid var(--border);
+            padding: 2px 7px; border-radius: 4px; font-family: 'Space Mono', monospace;
+            font-size: 0.72rem; margin: 2px; cursor: pointer; transition: border-color 0.15s;
+        }
+        .tag:hover { border-color: var(--accent2); color: var(--accent2); }
+
+        .feed-panel {
+            position: fixed; right: -380px; top: 0; width: 380px; height: 100%;
+            background: var(--bg2); border-left: 1px solid var(--border);
+            transition: right 0.3s cubic-bezier(0.25,1,0.5,1); z-index: 200;
+            display: flex; flex-direction: column; box-shadow: -8px 0 32px rgba(0,0,0,0.4);
+        }
+        .feed-panel.open { right: 0; }
+        .feed-head {
+            padding: 20px 20px 14px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .feed-title { font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .feed-list { flex: 1; overflow-y: auto; padding: 12px; }
+        .feed-item {
+            background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+            padding: 12px 14px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.2s;
+        }
+        .feed-item:hover { border-color: var(--accent2); }
+        .feed-item-from { font-size: 0.78rem; color: var(--accent2); font-weight: 600; }
+        .feed-item-subject { font-size: 0.83rem; font-weight: 500; margin: 3px 0; }
+        .feed-item-time { font-size: 0.72rem; color: var(--muted); }
+        .feed-item-badge {
+            display: inline-block; padding: 2px 7px; border-radius: 4px;
+            font-size: 0.7rem; font-weight: 600; margin-top: 4px;
+        }
+        .badge-success { background: rgba(110,231,183,0.15); color: var(--accent); }
+        .badge-error { background: rgba(248,113,113,0.15); color: var(--danger); }
+        .feed-empty { text-align: center; color: var(--muted); padding: 40px 20px; font-size: 0.85rem; }
+
+        
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+            z-index: 500; display: none; align-items: center; justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal {
+            background: var(--bg2); border: 1px solid var(--border);
+            border-radius: 14px; width: 560px; max-width: 95vw;
+            max-height: 85vh; overflow-y: auto; box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+        }
+        .modal-head {
+            padding: 24px 24px 16px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .modal-head h2 { font-size: 1.1rem; }
+        .tpl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 20px; }
+        .tpl-card {
+            background: var(--bg3); border: 1px solid var(--border);
+            border-radius: 10px; padding: 18px; cursor: pointer; transition: all 0.2s;
+        }
+        .tpl-card:hover { border-color: var(--accent2); transform: translateY(-2px); }
+        .tpl-icon { font-size: 1.5rem; margin-bottom: 8px; }
+        .tpl-name { font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; }
+        .tpl-desc { font-size: 0.75rem; color: var(--muted); line-height: 1.4; }
+
+   
+        #toast {
+            position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+            background: var(--bg2); color: var(--text); padding: 10px 20px; border-radius: 20px;
+            font-size: 0.85rem; z-index: 9999; opacity: 0; transition: opacity 0.3s;
+            pointer-events: none; border: 1px solid var(--border);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        }
+        #toast.show { opacity: 1; }
+
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+        <span style="color:var(--text)">⚡ FlowMail</span>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+        </button>
+    </div>
+
+    {% if user %}
+    <div class="status-pill">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText" style="flex:1">Checking...</span>
+    </div>
+
+    <div class="section-label">Triggers</div>
+    <div class="node-item" draggable="true" ondragstart="dragStart(event,'listener')">
+        <div class="node-dot" style="background:var(--node-trigger)"></div>
+        <div><div class="node-label">Gmail Trigger</div><div class="node-desc">Watch inbox for emails</div></div>
+    </div>
+
+    <div class="section-label">Processing</div>
+    <div class="node-item" draggable="true" ondragstart="dragStart(event,'llm')">
+        <div class="node-dot" style="background:var(--node-llm)"></div>
+        <div><div class="node-label">Groq LLM</div><div class="node-desc">AI with custom prompt</div></div>
+    </div>
+    <div class="node-item" draggable="true" ondragstart="dragStart(event,'summarizer')">
+        <div class="node-dot" style="background:var(--node-summarizer)"></div>
+        <div><div class="node-label">Summarizer</div><div class="node-desc">Auto bullet-point summary</div></div>
+    </div>
+    <div class="node-item" draggable="true" ondragstart="dragStart(event,'filter')">
+        <div class="node-dot" style="background:var(--node-filter)"></div>
+        <div><div class="node-label">Filter / Condition</div><div class="node-desc">If/else branching logic</div></div>
+    </div>
+    <div class="node-item" draggable="true" ondragstart="dragStart(event,'scheduler')">
+        <div class="node-dot" style="background:var(--node-scheduler)"></div>
+        <div><div class="node-label">Scheduler / Delay</div><div class="node-desc">Wait before sending</div></div>
+    </div>
+
+    <div class="section-label">Actions</div>
+    <div class="node-item" draggable="true" ondragstart="dragStart(event,'sender')">
+        <div class="node-dot" style="background:var(--node-sender)"></div>
+        <div><div class="node-label">Gmail Sender</div><div class="node-desc">Send an email</div></div>
+    </div>
+    <div class="node-item" draggable="true" ondragstart="dragStart(event,'sheets')">
+        <div class="node-dot" style="background:var(--node-sheets)"></div>
+        <div><div class="node-label">Google Sheets</div><div class="node-desc">Append row to sheet</div></div>
+    </div>
+    <div class="node-item" draggable="true" ondragstart="dragStart(event,'drive')">
+        <div class="node-dot" style="background:var(--node-drive)"></div>
+        <div><div class="node-label">Google Drive</div><div class="node-desc">Save file to Drive</div></div>
+    </div>
+    <div class="node-item" draggable="true" ondragstart="dragStart(event,'docs')">
+        <div class="node-dot" style="background:var(--node-docs)"></div>
+        <div><div class="node-label">Google Docs</div><div class="node-desc">Create document</div></div>
+    </div>
+    <div class="node-item" draggable="true" ondragstart="dragStart(event,'calendar')">
+        <div class="node-dot" style="background:var(--node-calendar)"></div>
+        <div><div class="node-label">Google Calendar</div><div class="node-desc">Create calendar event</div></div>
+    </div>
+    <div class="node-item" draggable="true" ondragstart="dragStart(event,'meet')">
+        <div class="node-dot" style="background:var(--node-meet)"></div>
+        <div><div class="node-label">Google Meet</div><div class="node-desc">Schedule meeting + link</div></div>
+    </div>
+    <div class="node-item" draggable="true" ondragstart="dragStart(event,'contacts')">
+        <div class="node-dot" style="background:var(--node-contacts)"></div>
+        <div><div class="node-label">Google Contacts</div><div class="node-desc">Save sender as contact</div></div>
+    </div>
+    <div class="node-item" draggable="true" ondragstart="dragStart(event,'tasks')">
+        <div class="node-dot" style="background:var(--node-tasks)"></div>
+        <div><div class="node-label">Google Tasks</div><div class="node-desc">Create task with due date</div></div>
+    </div>
+    <div class="node-item" draggable="true" ondragstart="dragStart(event,'forms')">
+        <div class="node-dot" style="background:var(--node-forms)"></div>
+        <div><div class="node-label">Google Forms</div><div class="node-desc">Read form responses</div></div>
+    </div>
+    <div class="node-item" draggable="true" ondragstart="dragStart(event,'youtube')">
+        <div class="node-dot" style="background:var(--node-youtube)"></div>
+        <div><div class="node-label">YouTube</div><div class="node-desc">Monitor channel/comments</div></div>
+    </div>
+
+    <div class="tpl-btn" onclick="openTemplates()">
+        <i class="fa-solid fa-layer-group"></i> &nbsp; Load a Template
+    </div>
+
+    {% else %}
+    <div style="padding:24px 20px; color:var(--muted); font-size:0.875rem; line-height:1.6;">
+        Login with Google to start building email automations.
+    </div>
+    {% endif %}
+</div>
+
+<div class="canvas-wrap" id="canvas">
+    <div class="top-bar">
+        {% if not user %}
+            <a href="/login"><button class="btn btn-google"><i class="fa-brands fa-google"></i> &nbsp;Login with Google</button></a>
+        {% else %}
+            {% if not has_gmail %}
+                <a href="/connect_gmail"><button class="btn btn-google"><i class="fa-brands fa-google"></i> &nbsp;Connect Gmail</button></a>
+            {% else %}
+                <button class="btn btn-outline" onclick="toggleFeed()"><i class="fa-solid fa-inbox"></i> &nbsp;Live Feed</button>
+                <button class="btn btn-stop" onclick="stopWorkflow()">Stop</button>
+                <button class="btn btn-primary" onclick="deployWorkflow()"><i class="fa-solid fa-rocket"></i> &nbsp;Deploy</button>
+                <a href="/logout"><button class="btn btn-outline">Logout</button></a>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    <div id="viewport">
+        <svg id="wireLayer"></svg>
+        <svg id="tempLayer"><path id="tempWire" d="" style="fill:none;stroke:var(--accent2);stroke-width:2px;stroke-dasharray:6 3;stroke-linecap:round"/></svg>
+    </div>
+</div>
+
+<!-- ===== CONFIG PANEL ===== -->
+<div class="panel" id="configPanel">
+    <div class="panel-head">
+        <div class="panel-title" id="panelTitle">Configuration</div>
+        <button class="panel-close" onclick="closePanel()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="panel-body" id="panelBody"></div>
+    <div class="panel-foot">
+        <button class="btn btn-primary" style="width:100%;padding:11px" onclick="saveNode()">Save Changes</button>
+        <button class="btn btn-stop" style="width:100%;padding:11px" onclick="deleteNode()">Delete Node</button>
+    </div>
+</div>
+
+<!-- ===== LIVE FEED PANEL ===== -->
+<div class="feed-panel" id="feedPanel">
+    <div class="feed-head">
+        <div class="feed-title"><i class="fa-solid fa-signal" style="color:var(--accent)"></i> Live Email Feed</div>
+        <button class="panel-close" onclick="toggleFeed()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="feed-list" id="feedList">
+        <div class="feed-empty"><i class="fa-regular fa-envelope" style="font-size:2rem;display:block;margin-bottom:10px;color:var(--border)"></i>No emails processed yet.<br>Deploy a workflow to start.</div>
+    </div>
+</div>
+
+<!-- ===== TEMPLATES MODAL ===== -->
+<div class="modal-overlay" id="tplModal">
+    <div class="modal">
+        <div class="modal-head">
+            <h2>📋 Workflow Templates</h2>
+            <button class="panel-close" onclick="closeTemplates()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="tpl-grid">
+            <div class="tpl-card" onclick="loadTemplate('auto_reply')">
+                <div class="tpl-icon">🤖</div>
+                <div class="tpl-name">AI Auto-Reply</div>
+                <div class="tpl-desc">Reads incoming emails and sends an AI-generated reply automatically</div>
+            </div>
+            <div class="tpl-card" onclick="loadTemplate('summarize_log')">
+                <div class="tpl-icon">📊</div>
+                <div class="tpl-name">Summarize to Sheets</div>
+                <div class="tpl-desc">Summarizes every email and logs it to a Google Sheet</div>
+            </div>
+            <div class="tpl-card" onclick="loadTemplate('invoice_filter')">
+                <div class="tpl-icon">🧾</div>
+                <div class="tpl-name">Invoice Filter</div>
+                <div class="tpl-desc">Filters emails with "Invoice" in subject, logs to Sheets</div>
+            </div>
+            <div class="tpl-card" onclick="loadTemplate('delayed_reply')">
+                <div class="tpl-icon">⏱️</div>
+                <div class="tpl-name">Delayed AI Reply</div>
+                <div class="tpl-desc">Waits 2 minutes then sends an AI reply (looks more human)</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ===== STATE =====
+let nodes = [], edges = [];
+let nodeIdCounter = 1;
+let transform = { x: 80, y: 80, scale: 1 };
+let isPanning = false, panStart = {x:0,y:0};
+let draggingId = null, dragOffset = {x:0,y:0};
+let isConnecting = false, connStartId = null, connStartCoords = {x:0,y:0};
+let editingId = null;
+let feedOpen = false;
+
+const canvas = document.getElementById('canvas');
+const viewport = document.getElementById('viewport');
+const tempWire = document.getElementById('tempWire');
+
+// ===== THEME =====
+function toggleTheme() {
+    document.body.classList.toggle('light-theme');
+    localStorage.setItem('theme', document.body.classList.contains('light-theme') ? 'light' : 'dark');
+}
+if (localStorage.getItem('theme') === 'light') document.body.classList.add('light-theme');
+
+// ===== TOAST =====
+function toast(msg, duration=3000) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), duration);
+}
+
+// ===== NODE META =====
+const NODE_META = {
+    listener:  { color: 'var(--node-trigger)',    icon: '📬', label: 'Gmail Trigger',    hasIn: false },
+    llm:       { color: 'var(--node-llm)',         icon: '🧠', label: 'Groq LLM',         hasIn: true  },
+    summarizer:{ color: 'var(--node-summarizer)',  icon: '📝', label: 'Summarizer',        hasIn: true  },
+    filter:    { color: 'var(--node-filter)',       icon: '🔀', label: 'Filter/Condition',  hasIn: true  },
+    scheduler: { color: 'var(--node-scheduler)',   icon: '⏱',  label: 'Delay/Scheduler',   hasIn: true  },
+    sender:    { color: 'var(--node-sender)',       icon: '📤', label: 'Gmail Sender',       hasIn: true  },
+    sheets:    { color: 'var(--node-sheets)',       icon: '📊', label: 'Google Sheets',      hasIn: true  },
+    calendar:  { color: 'var(--node-calendar)',     icon: '📅', label: 'Google Calendar',    hasIn: true  },
+    meet:      { color: 'var(--node-meet)',          icon: '🎥', label: 'Google Meet',         hasIn: true  },
+    drive:     { color: 'var(--node-drive)',         icon: '📁', label: 'Google Drive',        hasIn: true  },
+    docs:      { color: 'var(--node-docs)',          icon: '📄', label: 'Google Docs',         hasIn: true  },
+    contacts:  { color: 'var(--node-contacts)',      icon: '👤', label: 'Google Contacts',     hasIn: true  },
+    tasks:     { color: 'var(--node-tasks)',         icon: '✅', label: 'Google Tasks',        hasIn: true  },
+    forms:     { color: 'var(--node-forms)',         icon: '📋', label: 'Google Forms',        hasIn: true  },
+    youtube:   { color: 'var(--node-youtube)',       icon: '▶️',  label: 'YouTube',             hasIn: true  },
+};
+
+// ===== CANVAS EVENTS =====
+canvas.addEventListener('mousedown', e => {
+    const bg = e.target === canvas || e.target === viewport ||
+               e.target.closest('svg') !== null && !e.target.classList.contains('port');
+    if (bg) {
+        if (isConnecting) { cancelConn(); return; }
+        isPanning = true;
+        panStart = { x: e.clientX - transform.x, y: e.clientY - transform.y };
+        canvas.style.cursor = 'grabbing';
+        closePanel();
+        document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+    }
+});
+
+window.addEventListener('mousemove', e => {
+    if (isPanning) {
+        transform.x = e.clientX - panStart.x;
+        transform.y = e.clientY - panStart.y;
+        applyTransform();
+    }
+    if (draggingId !== null) {
+        const n = nodes.find(x => x.id === draggingId);
+        if (n) {
+            n.x = (e.clientX - transform.x - dragOffset.x) / transform.scale;
+            n.y = (e.clientY - transform.y - dragOffset.y) / transform.scale;
+            positionNode(n);
+            drawEdges();
+        }
+    }
+    if (isConnecting) {
+        const mx = (e.clientX - transform.x) / transform.scale;
+        const my = (e.clientY - transform.y) / transform.scale;
+        tempWire.setAttribute('d', bezier(connStartCoords.x, connStartCoords.y, mx, my));
+    }
+});
+
+window.addEventListener('mouseup', () => {
+    isPanning = false; draggingId = null;
+    canvas.style.cursor = isConnecting ? 'crosshair' : 'grab';
+});
+
+canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    transform.scale = Math.min(Math.max(0.3, transform.scale - e.deltaY * 0.0008), 2.5);
+    applyTransform();
+}, { passive: false });
+
+function applyTransform() {
+    viewport.style.transform = `translate(${transform.x}px,${transform.y}px) scale(${transform.scale})`;
+}
+applyTransform();
+
+// ===== DRAG & DROP =====
+function dragStart(e, type) { e.dataTransfer.setData('type', type); }
+canvas.addEventListener('dragover', e => e.preventDefault());
+canvas.addEventListener('drop', e => {
+    e.preventDefault();
+    const type = e.dataTransfer.getData('type');
+    if (!type) return;
+    const rect = canvas.getBoundingClientRect();
+    createNode(type, (e.clientX - rect.left - transform.x)/transform.scale, (e.clientY - rect.top - transform.y)/transform.scale);
+});
+
+// ===== CREATE NODE =====
+function createNode(type, x, y, forceId=null) {
+    const id = forceId !== null ? forceId : nodeIdCounter++;
+    if (id >= nodeIdCounter) nodeIdCounter = id + 1;
+    const meta = NODE_META[type] || NODE_META.sender;
+    const node = { id, type, x, y, data: {}, enabled: true };
+    nodes.push(node);
+
+    const el = document.createElement('div');
+    el.className = 'node';
+    el.id = `node-${id}`;
+
+    const ports = (meta.hasIn ? `<div class="port port-in" style="background:${meta.color}" data-nid="${id}" data-dir="in"></div>` : '')
+        + `<div class="port port-out" style="background:${meta.color}" data-nid="${id}" data-dir="out"></div>`;
+
+    el.innerHTML = `
+        <div class="node-head" style="background:${meta.color}">
+            ${meta.icon} ${meta.label}
+            <button class="node-toggle on" data-nid="${id}" title="Enable/Disable node">
+                <div class="node-toggle-knob"></div>
+            </button>
+        </div>
+        <div class="node-body" id="body-${id}">Configure...</div>
+        ${ports}
+    `;
+
+    el.querySelectorAll('.port').forEach(p => p.addEventListener('click', e => {
+        e.stopPropagation();
+        onPortClick(parseInt(p.dataset.nid), p.dataset.dir, p);
+    }));
+
+    el.querySelector('.node-toggle').addEventListener('click', e => {
+        e.stopPropagation();
+        toggleNodeEnabled(id);
+    });
+
+    el.addEventListener('mousedown', e => {
+        if (e.target.classList.contains('port') || e.target.closest('.node-toggle')) return;
+        e.stopPropagation();
+        draggingId = id;
+        const n = nodes.find(x => x.id === id);
+        dragOffset = {
+            x: e.clientX - (n.x * transform.scale + transform.x),
+            y: e.clientY - (n.y * transform.scale + transform.y)
+        };
+        selectNode(id);
+    });
+
+    viewport.appendChild(el);
+    positionNode(node);
+    return node;
+}
+
+function positionNode(node) {
+    const el = document.getElementById(`node-${node.id}`);
+    if (el) { el.style.left = `${node.x}px`; el.style.top = `${node.y}px`; }
+}
+
+function selectNode(id) {
+    document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+    document.getElementById(`node-${id}`)?.classList.add('selected');
+    openPanel(nodes.find(n => n.id === id));
+}
+
+function toggleNodeEnabled(id) {
+    const node = nodes.find(n => n.id === id);
+    if (!node) return;
+    node.enabled = !node.enabled;
+    const el = document.getElementById(`node-${id}`);
+    el?.classList.toggle('disabled', !node.enabled);
+    const btn = el?.querySelector('.node-toggle');
+    btn?.classList.toggle('on', node.enabled);
+}
+
+// ===== CONNECTIONS =====
+function onPortClick(nodeId, dir, portEl) {
+    if (!isConnecting && dir === 'out') {
+        isConnecting = true; connStartId = nodeId;
+        portEl.classList.add('active');
+        canvas.classList.add('connecting');
+        const n = nodes.find(x => x.id === nodeId);
+        connStartCoords = { x: n.x + 250, y: n.y + 28 };
+    } else if (isConnecting && dir === 'in') {
+        if (connStartId !== nodeId && !edges.some(e => e.source===connStartId && e.target===nodeId)) {
+            edges.push({ source: connStartId, target: nodeId });
+            drawEdges();
+        }
+        cancelConn();
+    } else if (isConnecting && dir === 'out') {
+        cancelConn(); onPortClick(nodeId, 'out', portEl);
+    }
+}
+
+function cancelConn() {
+    isConnecting = false; connStartId = null;
+    tempWire.setAttribute('d', '');
+    canvas.classList.remove('connecting');
+    document.querySelectorAll('.port').forEach(p => p.classList.remove('active'));
+}
+
+function drawEdges() {
+    const layer = document.getElementById('wireLayer');
+    layer.innerHTML = '';
+    edges.forEach(edge => {
+        const n1 = nodes.find(n => n.id === edge.source);
+        const n2 = nodes.find(n => n.id === edge.target);
+        if (!n1 || !n2) return;
+        const path = document.createElementNS("http://www.w3.org/2000/svg","path");
+        path.classList.add('wire');
+        path.setAttribute('d', bezier(n1.x+250, n1.y+28, n2.x, n2.y+28));
+        path.addEventListener('contextmenu', e => {
+            e.preventDefault();
+            if (confirm('Delete this connection?')) {
+                edges = edges.filter(x => x !== edge); drawEdges();
+            }
+        });
+        layer.appendChild(path);
+    });
+}
+
+function bezier(x1,y1,x2,y2) {
+    const cx = Math.abs(x2-x1)*0.5;
+    return `M${x1} ${y1} C${x1+cx} ${y1} ${x2-cx} ${y2} ${x2} ${y2}`;
+}
+
+// ===== CONFIG PANEL =====
+function openPanel(node) {
+    editingId = node.id;
+    document.getElementById('panelTitle').textContent = NODE_META[node.type]?.icon + ' ' + NODE_META[node.type]?.label;
+    document.getElementById('panelBody').innerHTML = buildPanelHTML(node);
+    document.getElementById('configPanel').classList.add('open');
+    // Init dynamic fields
+    if (node.type === 'listener') updateListenerUI();
+    if (node.type === 'filter') updateFilterUI();
+}
+
+function closePanel() {
+    document.getElementById('configPanel').classList.remove('open');
+    editingId = null;
+    document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+}
+
+function buildPanelHTML(node) {
+    const d = node.data;
+    const tags = (list) => list.map(t => `<span class="tag" onclick="insertTag('${t}')">${t}</span>`).join('');
+
+    if (node.type === 'listener') {
+        const mode = d.mode||'all';
+        return `
+        <div class="field"><label>Trigger Mode</label>
+            <select id="inp_mode" onchange="updateListenerUI()">
+                <option value="all" ${mode==='all'?'selected':''}>⚡ Any New Email</option>
+                <option value="sender" ${mode==='sender'?'selected':''}>👤 From Specific Sender</option>
+                <option value="subject" ${mode==='subject'?'selected':''}>🔤 Subject Contains</option>
+                <option value="strict" ${mode==='strict'?'selected':''}>🔒 Sender AND Subject</option>
+            </select></div>
+        <div id="grp_from" style="display:none" class="field"><label>Sender Email</label>
+            <input id="inp_from" value="${esc(d.filter_from||'')}" placeholder="someone@example.com"></div>
+        <div id="grp_sub" style="display:none" class="field"><label>Subject Keyword</label>
+            <input id="inp_sub" value="${esc(d.filter_subject||'')}" placeholder="Invoice"></div>`;
+    }
+
+    if (node.type === 'llm') {
+        return `
+        <div class="field"><label>Groq API Key</label>
+            <input type="password" id="inp_apikey" value="${esc(d.api_key||'')}" placeholder="gsk_...">
+            <div class="field-hint"><a href="https://console.groq.com" target="_blank" style="color:var(--accent2)">Get free key →</a></div></div>
+        <div class="field"><label>Prompt / Instructions</label>
+            <textarea id="inp_prompt" rows="7" placeholder="Write a professional reply to this email...">${esc(d.prompt||'')}</textarea>
+            <div class="field-hint">The AI receives full email context automatically.</div></div>`;
+    }
+
+    if (node.type === 'summarizer') {
+        return `
+        <div class="field"><label>Groq API Key</label>
+            <input type="password" id="inp_apikey" value="${esc(d.api_key||'')}" placeholder="gsk_...">
+            <div class="field-hint">Produces 3–5 bullet point summary of the email.</div></div>`;
+    }
+
+    if (node.type === 'filter') {
+        const field = d.field||'subject', op = d.operator||'contains';
+        return `
+        <div class="field"><label>Email Field</label>
+            <select id="inp_field" onchange="updateFilterUI()">
+                <option value="subject" ${field==='subject'?'selected':''}>Subject</option>
+                <option value="from" ${field==='from'?'selected':''}>Sender (from)</option>
+                <option value="content" ${field==='content'?'selected':''}>Body Content</option>
+            </select></div>
+        <div class="field"><label>Condition</label>
+            <select id="inp_operator">
+                <option value="contains" ${op==='contains'?'selected':''}>contains</option>
+                <option value="not_contains" ${op==='not_contains'?'selected':''}>does not contain</option>
+                <option value="equals" ${op==='equals'?'selected':''}>equals</option>
+                <option value="starts_with" ${op==='starts_with'?'selected':''}>starts with</option>
+            </select></div>
+        <div class="field"><label>Value</label>
+            <input id="inp_value" value="${esc(d.value||'')}" placeholder="Invoice">
+            <div class="field-hint">If condition is NOT met, the workflow stops for this email.</div></div>`;
+    }
+
+    if (node.type === 'scheduler') {
+        return `
+        <div class="field"><label>Delay (seconds)</label>
+            <input type="number" id="inp_delay" value="${d.delay_seconds||60}" min="1" max="3600">
+            <div class="field-hint">Workflow pauses here before proceeding. Use 120 for 2 minutes.</div></div>`;
+    }
+
+    if (node.type === 'sender') {
+        return `
+        <div class="field"><label>To Email</label>
+            <input id="inp_to" value="${esc(d.to_email||'')}" placeholder="recipient@example.com"></div>
+        <div class="field"><label>Subject</label>
+            <input id="inp_subj" value="${esc(d.subject||'')}" placeholder="Re: Your message"></div>
+        <div class="field"><label>Body</label>
+            <textarea id="inp_body" rows="8" placeholder="Dear sender,\n\n\x7B\x7Bllm.response\x7D\x7D\n\nBest regards">${esc(d.body||'')}</textarea>
+            <div class="field-hint"><strong>Placeholders — click to insert:</strong><br>
+            ${tags(['\x7B\x7Bllm.response\x7D\x7D','\x7B\x7Bsummary\x7D\x7D','\x7B\x7Bemail.from\x7D\x7D','\x7B\x7Bemail.subject\x7D\x7D','\x7B\x7Bemail.content\x7D\x7D','\x7B\x7Bemail.time\x7D\x7D','\x7B\x7Bnow\x7D\x7D'])}
+            </div></div>`;
+    }
+
+    if (node.type === 'sheets') {
+        return `
+        <div class="field"><label>Spreadsheet ID</label>
+            <input id="inp_sheet_id" value="${esc(d.spreadsheet_id||'')}" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms">
+            <div class="field-hint">Found in your Google Sheets URL: docs.google.com/spreadsheets/d/<strong>ID</strong>/edit</div></div>
+        <div class="field"><label>Sheet Range</label>
+            <input id="inp_range" value="${esc(d.range||'Sheet1!A1')}" placeholder="Sheet1!A1"></div>
+        <div class="field"><label>Columns (comma-separated)</label>
+            <input id="inp_cols" value="${esc(d.columns||'from,subject,summary,time')}" placeholder="from,subject,summary,time">
+            <div class="field-hint">Available: <code>from</code> <code>to</code> <code>subject</code> <code>content</code> <code>time</code> <code>summary</code> <code>llm_response</code> <code>now</code></div></div>`;
+    }
+
+    if (node.type === 'calendar' || node.type === 'meet') {
+        const isMeet = node.type === 'meet';
+        return `
+        <div class="field"><label>${isMeet ? 'Meeting' : 'Event'} Title</label>
+            <input id="inp_title" value="${esc(d.title||'')}" placeholder="Meeting: \x7B\x7Bemail.subject\x7D\x7D"></div>
+        <div class="field"><label>Description</label>
+            <textarea id="inp_desc" rows="3" placeholder="\x7B\x7Bemail.content\x7D\x7D">${esc(d.desc||'')}</textarea></div>
+        <div class="field"><label>Date (YYYY-MM-DD, blank = tomorrow)</label>
+            <input id="inp_date" value="${esc(d.date||'')}" placeholder="2024-12-25"></div>
+        <div class="field"><label>Time (HH:MM, 24h)</label>
+            <input id="inp_time" value="${esc(d.time||'10:00')}" placeholder="14:00"></div>
+        <div class="field"><label>Duration (minutes)</label>
+            <input type="number" id="inp_duration" value="${d.duration_min||60}" min="15" max="480"></div>
+        <div class="field"><label>Attendees (comma-separated emails)</label>
+            <input id="inp_attendees" value="${esc(d.attendees||'')}" placeholder="\x7B\x7Bemail.from\x7D\x7D">
+            <div class="field-hint">Click to insert: <span class="tag" onclick="insertInto('inp_attendees','\x7B\x7Bemail.from\x7D\x7D')">{{ '{{email.from}}' }}</span></div></div>
+        ${isMeet ? '' : '<div class="field"><label>Location (optional)</label><input id="inp_location" value="'+esc(d.location||'')+'" placeholder="Conference Room / Online"></div>'}
+        `;
+    }
+
+    if (node.type === 'drive') {
+        return `
+        <div class="field"><label>File Name</label>
+            <input id="inp_filename" value="${esc(d.filename||'Email_\x7B\x7Bemail.subject\x7D\x7D.txt')}" placeholder="Email_note.txt"></div>
+        <div class="field"><label>File Content</label>
+            <textarea id="inp_content" rows="5" placeholder="\x7B\x7Bemail.content\x7D\x7D">${esc(d.content||'\x7B\x7Bemail.content\x7D\x7D')}</textarea></div>
+        <div class="field"><label>Drive Folder ID (optional)</label>
+            <input id="inp_folder_id" value="${esc(d.folder_id||'')}" placeholder="Leave blank for My Drive root">
+            <div class="field-hint">From Drive folder URL: drive.google.com/drive/folders/<strong>FOLDER_ID</strong></div></div>
+        `;
+    }
+
+    if (node.type === 'docs') {
+        return `
+        <div class="field"><label>Document Title</label>
+            <input id="inp_title" value="${esc(d.title||'Doc: \x7B\x7Bemail.subject\x7D\x7D')}" placeholder="Report: Invoice Analysis"></div>
+        <div class="field"><label>Document Content</label>
+            <textarea id="inp_content" rows="6" placeholder="\x7B\x7Bllm.response\x7D\x7D">${esc(d.content||'\x7B\x7Bllm.response\x7D\x7D')}</textarea>
+            <div class="field-hint">Tip: Connect LLM node first and use <span class="tag">{{ '{{llm.response}}' }}</span> here for AI-written docs</div></div>
+        <div class="field"><label>Drive Folder ID (optional)</label>
+            <input id="inp_folder_id" value="${esc(d.folder_id||'')}" placeholder="Leave blank for My Drive root"></div>
+        `;
+    }
+
+    if (node.type === 'contacts') {
+        return `
+        <div class="field"><label>Note to add to contact</label>
+            <textarea id="inp_note" rows="3" placeholder="Added from email: \x7B\x7Bemail.subject\x7D\x7D">${esc(d.note||'Added from email: \x7B\x7Bemail.subject\x7D\x7D')}</textarea>
+            <div class="field-hint">Sender name and email are extracted automatically from the email's From field.</div></div>
+        `;
+    }
+
+    if (node.type === 'tasks') {
+        return `
+        <div class="field"><label>Task Title</label>
+            <input id="inp_title" value="${esc(d.title||'\x7B\x7Bemail.subject\x7D\x7D')}" placeholder="Follow up on: \x7B\x7Bemail.subject\x7D\x7D"></div>
+        <div class="field"><label>Task Notes</label>
+            <textarea id="inp_notes" rows="4" placeholder="From: \x7B\x7Bemail.from\x7D\x7D">${esc(d.notes||'From: \x7B\x7Bemail.from\x7D\x7D\n\n\x7B\x7Bllm.response\x7D\x7D')}</textarea></div>
+        <div class="field"><label>Due in (days from now)</label>
+            <input type="number" id="inp_due_days" value="${d.due_days||3}" min="1" max="365"></div>
+        <div class="field"><label>Task List ID (optional)</label>
+            <input id="inp_tasklist_id" value="${esc(d.tasklist_id||'@default')}" placeholder="@default">
+            <div class="field-hint">Use @default for your primary task list</div></div>
+        `;
+    }
+
+    if (node.type === 'forms') {
+        return `
+        <div class="field"><label>Google Form ID</label>
+            <input id="inp_form_id" value="${esc(d.form_id||'')}" placeholder="1FAIpQLSd...">
+            <div class="field-hint">From your Form URL: docs.google.com/forms/d/<strong>FORM_ID</strong>/edit</div></div>
+        <div class="field-hint" style="background:var(--bg3);padding:10px;border-radius:6px;margin-top:8px">
+            ℹ️ This node reads new Form responses and passes them downstream. Connect to LLM or Sheets to process them.</div>
+        `;
+    }
+
+    if (node.type === 'youtube') {
+        return `
+        <div class="field"><label>YouTube Data API Key</label>
+            <input type="password" id="inp_api_key" value="${esc(d.api_key||'')}" placeholder="AIza...">
+            <div class="field-hint"><a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" style="color:var(--accent2)">Enable YouTube Data API v3 →</a></div></div>
+        <div class="field"><label>Mode</label>
+            <select id="inp_mode">
+                <option value="videos" ${d.mode==='videos'?'selected':''}>Latest Videos from Channel</option>
+                <option value="comments" ${d.mode==='comments'?'selected':''}>Comments on a Video</option>
+            </select></div>
+        <div class="field"><label>Channel ID</label>
+            <input id="inp_channel_id" value="${esc(d.channel_id||'')}" placeholder="UCxxxxxxxxxxxxxxxxxxxxxx">
+            <div class="field-hint">From youtube.com/channel/<strong>CHANNEL_ID</strong></div></div>
+        <div class="field"><label>Video ID (for comments mode)</label>
+            <input id="inp_video_id" value="${esc(d.video_id||'')}" placeholder="dQw4w9WgXcQ"></div>
+        `;
+    }
+
+    return '<p style="color:var(--muted)">No configuration needed.</p>';
+}
+
+window.updateListenerUI = function() {
+    const mode = document.getElementById('inp_mode')?.value;
+    document.getElementById('grp_from').style.display = (mode==='sender'||mode==='strict') ? 'block' : 'none';
+    document.getElementById('grp_sub').style.display = (mode==='subject'||mode==='strict') ? 'block' : 'none';
+};
+
+window.updateFilterUI = function() { };
+
+
+window.insertInto = function(inputId, tag) {
+    const el = document.getElementById(inputId);
+    if (!el) return;
+    const s = el.selectionStart ?? el.value.length;
+    el.value = el.value.slice(0, s) + tag + el.value.slice(s);
+    el.focus();
+};
+
+window.insertTag = function(tag) {
+    const ta = document.getElementById('inp_body');
+    if (!ta) return;
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    ta.value = ta.value.slice(0,s) + tag + ta.value.slice(e);
+    ta.selectionStart = ta.selectionEnd = s + tag.length;
+    ta.focus();
+};
+
+function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function saveNode() {
+    const node = nodes.find(n => n.id === editingId);
+    if (!node) return;
+    const d = node.data;
+    const g = id => document.getElementById(id)?.value ?? '';
+
+    if (node.type === 'listener') {
+        d.mode = g('inp_mode');
+        d.filter_from = g('inp_from');
+        d.filter_subject = g('inp_sub');
+        const m = d.mode;
+        let txt = '⚡ Any New Email';
+        if (m==='sender') txt = `From: ${d.filter_from}`;
+        else if (m==='subject') txt = `Subject: "${d.filter_subject}"`;
+        else if (m==='strict') txt = `From: ${d.filter_from}\nSubj: "${d.filter_subject}"`;
+        setBody(node.id, txt);
+    } else if (node.type === 'llm') {
+        d.api_key = g('inp_apikey'); d.prompt = g('inp_prompt');
+        setBody(node.id, d.prompt ? d.prompt.slice(0,60)+'…' : 'No prompt set');
+    } else if (node.type === 'summarizer') {
+        d.api_key = g('inp_apikey');
+        setBody(node.id, d.api_key ? 'Ready to summarize' : '⚠ API key needed');
+    } else if (node.type === 'filter') {
+        d.field = g('inp_field'); d.operator = g('inp_operator'); d.value = g('inp_value');
+        setBody(node.id, `${d.field} ${d.operator} "${d.value}"`);
+    } else if (node.type === 'scheduler') {
+        d.delay_seconds = parseInt(g('inp_delay')) || 60;
+        setBody(node.id, `⏱ Wait ${d.delay_seconds}s`);
+    } else if (node.type === 'sender') {
+        d.to_email = g('inp_to'); d.subject = g('inp_subj'); d.body = g('inp_body');
+        setBody(node.id, `To: ${d.to_email||'not set'}`);
+    } else if (node.type === 'sheets') {
+        d.spreadsheet_id = g('inp_sheet_id'); d.range = g('inp_range'); d.columns = g('inp_cols');
+        setBody(node.id, `Sheet: ${d.spreadsheet_id?.slice(0,20)||'not set'}`);
+    } else if (node.type === 'calendar') {
+        d.title=g('inp_title'); d.desc=g('inp_desc'); d.date=g('inp_date');
+        d.time=g('inp_time'); d.duration_min=g('inp_duration');
+        d.attendees=g('inp_attendees'); d.location=g('inp_location')||'';
+        setBody(node.id, `📅 ${d.title||'Event'} @ ${d.date||'tomorrow'} ${d.time||'10:00'}`);
+    } else if (node.type === 'meet') {
+        d.title=g('inp_title'); d.desc=g('inp_desc'); d.date=g('inp_date');
+        d.time=g('inp_time'); d.duration_min=g('inp_duration'); d.attendees=g('inp_attendees');
+        setBody(node.id, `🎥 ${d.title||'Meeting'} @ ${d.date||'tomorrow'} ${d.time||'10:00'}`);
+    } else if (node.type === 'drive') {
+        d.filename=g('inp_filename'); d.content=g('inp_content'); d.folder_id=g('inp_folder_id');
+        setBody(node.id, `📁 ${d.filename||'file.txt'}`);
+    } else if (node.type === 'docs') {
+        d.title=g('inp_title'); d.content=g('inp_content'); d.folder_id=g('inp_folder_id');
+        setBody(node.id, `📄 ${d.title||'New Doc'}`);
+    } else if (node.type === 'contacts') {
+        d.note=g('inp_note');
+        setBody(node.id, '👤 Save sender as contact');
+    } else if (node.type === 'tasks') {
+        d.title=g('inp_title'); d.notes=g('inp_notes');
+        d.due_days=parseInt(g('inp_due_days'))||3;
+        d.tasklist_id=g('inp_tasklist_id')||'@default';
+        setBody(node.id, `✅ ${d.title||'Task'} · due in ${d.due_days}d`);
+    } else if (node.type === 'forms') {
+        d.form_id=g('inp_form_id');
+        setBody(node.id, `📋 Form: ${d.form_id?.slice(0,20)||'not set'}`);
+    } else if (node.type === 'youtube') {
+        d.api_key=g('inp_api_key'); d.mode=g('inp_mode');
+        d.channel_id=g('inp_channel_id'); d.video_id=g('inp_video_id');
+        setBody(node.id, `▶️ ${d.mode==='comments'?'Comments':'Videos'} · ${d.channel_id?.slice(0,15)||'no channel'}`);
+    }
+
+    closePanel();
+    toast('✅ Node saved');
+}
+
+function setBody(id, text) {
+    const el = document.getElementById(`body-${id}`);
+    if (el) el.textContent = text;
+}
+
+function deleteNode() {
+    if (!editingId) return;
+    if (!confirm('Delete this node and its connections?')) return;
+    nodes = nodes.filter(n => n.id !== editingId);
+    edges = edges.filter(e => e.source !== editingId && e.target !== editingId);
+    document.getElementById(`node-${editingId}`)?.remove();
+    drawEdges(); closePanel();
+    toast('🗑 Deleted');
+}
+
+
+function openTemplates() { document.getElementById('tplModal').classList.add('open'); }
+function closeTemplates() { document.getElementById('tplModal').classList.remove('open'); }
+
+const TEMPLATES = {
+    auto_reply: {
+        nodes: [
+            {id:1, type:'listener', x:80, y:180, data:{mode:'all'}, enabled:true},
+            {id:2, type:'llm', x:400, y:180, data:{api_key:'', prompt:'Write a friendly professional auto-reply to this email. Keep it brief and mention you will respond in detail soon.'}, enabled:true},
+            {id:3, type:'sender', x:720, y:180, data:{to_email:'\x7B\x7Bemail.from\x7D\x7D', subject:'Re: \x7B\x7Bemail.subject\x7D\x7D', body:'\x7B\x7Bllm.response\x7D\x7D'}, enabled:true},
+        ],
+        edges: [{source:1,target:2},{source:2,target:3}]
+    },
+    summarize_log: {
+        nodes: [
+            {id:1, type:'listener', x:80, y:180, data:{mode:'all'}, enabled:true},
+            {id:2, type:'summarizer', x:400, y:180, data:{api_key:''}, enabled:true},
+            {id:3, type:'sheets', x:720, y:180, data:{spreadsheet_id:'', range:'Sheet1!A1', columns:'from,subject,summary,time'}, enabled:true},
+        ],
+        edges: [{source:1,target:2},{source:2,target:3}]
+    },
+    invoice_filter: {
+        nodes: [
+            {id:1, type:'listener', x:80, y:180, data:{mode:'all'}, enabled:true},
+            {id:2, type:'filter', x:380, y:180, data:{field:'subject', operator:'contains', value:'invoice'}, enabled:true},
+            {id:3, type:'summarizer', x:660, y:180, data:{api_key:''}, enabled:true},
+            {id:4, type:'sheets', x:940, y:180, data:{spreadsheet_id:'', range:'Invoices!A1', columns:'from,subject,summary,time'}, enabled:true},
+        ],
+        edges: [{source:1,target:2},{source:2,target:3},{source:3,target:4}]
+    },
+    delayed_reply: {
+        nodes: [
+            {id:1, type:'listener', x:80, y:180, data:{mode:'all'}, enabled:true},
+            {id:2, type:'llm', x:360, y:180, data:{api_key:'', prompt:'Write a thoughtful professional reply to this email.'}, enabled:true},
+            {id:3, type:'scheduler', x:640, y:180, data:{delay_seconds:120}, enabled:true},
+            {id:4, type:'sender', x:920, y:180, data:{to_email:'\x7B\x7Bemail.from\x7D\x7D', subject:'Re: \x7B\x7Bemail.subject\x7D\x7D', body:'\x7B\x7Bllm.response\x7D\x7D'}, enabled:true},
+        ],
+        edges: [{source:1,target:2},{source:2,target:3},{source:3,target:4}]
+    }
+};
+
+function loadTemplate(key) {
+    if (!confirm('This will replace your current workflow. Continue?')) return;
+    const tpl = TEMPLATES[key];
+    if (!tpl) return;
+
+    nodes.forEach(n => document.getElementById(`node-${n.id}`)?.remove());
+    nodes = []; edges = [];
+    document.getElementById('wireLayer').innerHTML = '';
+
+   
+    tpl.nodes.forEach(n => {
+        createNode(n.type, n.x, n.y, n.id);
+        const mem = nodes.find(x => x.id === n.id);
+        if (mem) {
+            mem.data = { ...n.data };
+            mem.enabled = n.enabled;
+            restoreNodeBody(n);
+            if (!n.enabled) {
+                document.getElementById(`node-${n.id}`)?.classList.add('disabled');
+                document.getElementById(`node-${n.id}`)?.querySelector('.node-toggle')?.classList.remove('on');
+            }
+        }
+    });
+    edges = tpl.edges.map(e => ({...e}));
+    drawEdges();
+    closeTemplates();
+    toast('✅ Template loaded! Fill in API keys and deploy.');
+}
+
+function restoreNodeBody(n) {
+    const d = n.data;
+    let txt = 'Configure...';
+    if (n.type==='listener') {
+        const m=d.mode||'all';
+        if (m==='all') txt='⚡ Any New Email';
+        else if (m==='sender') txt=`From: ${d.filter_from}`;
+        else if (m==='subject') txt=`Subject: "${d.filter_subject}"`;
+        else if (m==='strict') txt=`From: ${d.filter_from}\nSubj: "${d.filter_subject}"`;
+    } else if (n.type==='llm') txt = d.prompt ? d.prompt.slice(0,60)+'…' : 'No prompt';
+    else if (n.type==='summarizer') txt = d.api_key ? 'Ready to summarize' : '⚠ API key needed';
+    else if (n.type==='filter') txt = `${d.field||'subject'} ${d.operator||'contains'} "${d.value||''}"`;
+    else if (n.type==='scheduler') txt = `⏱ Wait ${d.delay_seconds||60}s`;
+    else if (n.type==='sender') txt = `To: ${d.to_email||'not set'}`;
+    else if (n.type==='sheets') txt = `Sheet: ${(d.spreadsheet_id||'not set').slice(0,20)}`;
+    else if (n.type==='calendar') txt = `📅 ${d.title||'Event'} @ ${d.date||'tomorrow'} ${d.time||''}`;
+    else if (n.type==='meet') txt = `🎥 ${d.title||'Meeting'} @ ${d.date||'tomorrow'} ${d.time||''}`;
+    else if (n.type==='drive') txt = `📁 ${d.filename||'file.txt'}`;
+    else if (n.type==='docs') txt = `📄 ${d.title||'New Doc'}`;
+    else if (n.type==='contacts') txt = '👤 Save sender as contact';
+    else if (n.type==='tasks') txt = `✅ ${d.title||'Task'} · due in ${d.due_days||3}d`;
+    else if (n.type==='forms') txt = `📋 Form: ${(d.form_id||'not set').slice(0,20)}`;
+    else if (n.type==='youtube') txt = `▶️ ${d.mode==='comments'?'Comments':'Videos'} · ${(d.channel_id||'no channel').slice(0,15)}`;
+    setBody(n.id, txt);
+}
+
+
+function toggleFeed() {
+    feedOpen = !feedOpen;
+    document.getElementById('feedPanel').classList.toggle('open', feedOpen);
+}
+
+async function refreshFeed() {
+    try {
+        const res = await fetch('/api/feed');
+        if (!res.ok) return;
+        const items = await res.json();
+        const list = document.getElementById('feedList');
+        if (!items.length) return;
+        list.innerHTML = items.map(item => `
+            <div class="feed-item">
+                <div class="feed-item-from">${esc2(item.email.from)}</div>
+                <div class="feed-item-subject">${esc2(item.email.subject)}</div>
+                <div class="feed-item-time">${new Date(item.timestamp).toLocaleTimeString()}</div>
+                ${item.summary ? `<div style="font-size:0.75rem;color:var(--muted);margin-top:4px;line-height:1.4">${esc2(item.summary.slice(0,120))}…</div>` : ''}
+                <div><span class="feed-item-badge ${item.status==='success'?'badge-success':'badge-error'}">${item.status}</span></div>
+            </div>`).join('');
+    } catch(e) {}
+}
+
+function esc2(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+
+async function updateStatus() {
+    try {
+        const res = await fetch('/api/status');
+        const d = await res.json();
+        const dot = document.getElementById('statusDot');
+        const txt = document.getElementById('statusText');
+        if (!dot || !txt) return;
+        dot.className = 'status-dot';
+        if (d.error === 'insufficient_scopes') {
+            dot.classList.add('err');
+            txt.innerHTML = '⚠ <a href="/connect_gmail" style="color:var(--danger)">Re-authorize Gmail</a>';
+        } else if (d.active) {
+            dot.classList.add('on');
+            txt.textContent = `Running · ${d.email_count} processed`;
+        } else {
+            txt.textContent = d.has_gmail ? 'Stopped' : 'Gmail not connected';
+        }
+    } catch(e) {}
+}
+
+
+async function deployWorkflow() {
+    if (!nodes.length) { toast('⚠ Add some nodes first'); return; }
+    if (!nodes.some(n => n.type === 'listener')) { toast('⚠ You need a Gmail Trigger node'); return; }
+    const payload = {
+        nodes: nodes.map(n => ({id:n.id, type:n.type, x:n.x, y:n.y, data:n.data, enabled:n.enabled})),
+        edges
+    };
+    try {
+        const res = await fetch('/api/deploy', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(payload)
+        });
+        if (res.ok) { toast(`🚀 Deployed! ${nodes.length} nodes active`); updateStatus(); }
+        else toast(`❌ Deploy failed: ${await res.text()}`);
+    } catch(e) { toast('❌ Connection error'); }
+}
+
+async function stopWorkflow() {
+    if (!confirm('Stop the workflow?')) return;
+    await fetch('/api/stop', {method:'POST'});
+    toast('🛑 Stopped'); updateStatus();
+}
+
+
+window.onload = async () => {
+    try {
+        const res = await fetch('/api/load');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.nodes?.length) {
+            data.nodes.forEach(n => {
+                createNode(n.type, n.x, n.y, n.id);
+                const mem = nodes.find(x => x.id === n.id);
+                if (mem) {
+                    mem.data = n.data || {};
+                    mem.enabled = n.enabled !== false;
+                    restoreNodeBody(n);
+                    if (!mem.enabled) {
+                        document.getElementById(`node-${n.id}`)?.classList.add('disabled');
+                        document.getElementById(`node-${n.id}`)?.querySelector('.node-toggle')?.classList.remove('on');
+                    }
+                }
+            });
+            edges = data.edges || [];
+            drawEdges();
+        }
+    } catch(e) { console.error('Load error:', e); }
+
+    updateStatus();
+    setInterval(updateStatus, 5000);
+    setInterval(refreshFeed, 4000);
+};
+</script>
+</body>
+</html>
